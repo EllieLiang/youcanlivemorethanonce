@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>人生沙盘 · 推演模拟器</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+    background: #080b16;
+    color: #e8ecf8;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 24px 16px 80px;
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(109,140,255,0.16), transparent 45%),
+      radial-gradient(circle at 85% 100%, rgba(244,114,182,0.10), transparent 45%);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app { width: 100%; max-width: 720px; }
+
+  .screen { display: none; }
+  .screen.active { display: block; animation: fadeUp .45s cubic-bezier(.22,1,.36,1); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .start-card { text-align: center; padding: 48px 12px 0; }
+
+  .title {
+    font-size: clamp(34px, 8vw, 46px);
+    font-weight: 800;
+    letter-spacing: 3px;
+    background: linear-gradient(135deg, #8ba4ff 0%, #c4a3ff 50%, #f472b6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    line-height: 1.25;
+  }
+
+  .subtitle {
+    margin-top: 14px;
+    font-size: 14px;
+    color: #7c87a8;
+    letter-spacing: .5px;
+  }
+
+  .intro {
+    margin: 34px auto 0;
+    max-width: 480px;
+    text-align: left;
+    background: rgba(255,255,255,0.035);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 22px 24px;
+    font-size: 14px;
+    line-height: 1.9;
+    color: #a8b2ce;
+  }
+  .intro b { color: #dbe3ff; font-weight: 600; }
+  .intro .hl { color: #8ba4ff; }
+
+  .btn-primary {
+    display: inline-block;
+    margin-top: 32px;
+    padding: 15px 52px;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: #fff;
+    background: linear-gradient(135deg, #5b7cfa, #8b5cf6);
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: inherit;
+    box-shadow: 0 10px 30px -8px rgba(109,140,255,.7);
+    transition: transform .2s, box-shadow .2s;
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 40px -10px rgba(109,140,255,.85); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .section-title {
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: #6d7899;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .section-heading {
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 26px;
+  }
+
+  .origin-grid { display: grid; gap: 12px; }
+
+  .origin-card {
+    background: rgba(255,255,255,0.035);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 15px;
+    padding: 17px 20px;
+    text-align: left;
+    cursor: pointer;
+    transition: .22s cubic-bezier(.22,1,.36,1);
+    color: inherit;
+    width: 100%;
+    font-family: inherit;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+  }
+  .origin-card:hover {
+    background: rgba(109,140,255,0.12);
+    border-color: rgba(109,140,255,0.55);
+    transform: translateY(-2px);
+  }
+  .origin-name { font-size: 16px; font-weight: 600; margin-bottom: 5px; }
+  .origin-desc { font-size: 12.5px; color: #7c87a8; line-height: 1.5; }
+  .origin-preview { display: flex; gap: 4px; flex-shrink: 0; }
+  .op-dot {
+    width: 7px; height: 22px; border-radius: 4px;
+    background: rgba(255,255,255,0.1);
+    position: relative; overflow: hidden;
+  }
+  .op-dot i { position: absolute; bottom: 0; left: 0; width: 100%; border-radius: 4px; }
+
+  .hud {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 12px;
+    z-index: 10;
+  }
+  .age-block { display: flex; align-items: baseline; gap: 3px; flex-shrink: 0; }
+  .age-num {
+    font-size: 26px; font-weight: 800;
+    background: linear-gradient(135deg, #8ba4ff, #f472b6);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    font-variant-numeric: tabular-nums;
+  }
+  .age-unit { font-size: 12px; color: #6d7899; }
+
+  .attrs { flex: 1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .attr { min-width: 0; }
+  .attr-top {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 3px; margin-bottom: 4px;
+  }
+  .attr-icon { font-size: 11px; opacity: .85; }
+  .attr-val { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .bar {
+    height: 4px; border-radius: 3px;
+    background: rgba(255,255,255,0.09);
+    overflow: hidden;
+  }
+  .bar i {
+    display: block; height: 100%; border-radius: 3px;
+    transition: width .55s cubic-bezier(.22,1,.36,1);
+  }
+
+  .event-meta {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 12px;
+  }
+  .age-tag {
+    font-size: 11.5px; font-weight: 600; letter-spacing: 1px;
+    color: #8ba4ff;
+    background: rgba(109,140,255,0.14);
+    border: 1px solid rgba(109,140,255,0.3);
+    padding: 4px 11px; border-radius: 999px;
+  }
+  .step { font-size: 11.5px; color: #5c6684; letter-spacing: .5px; }
+
+  .event-title {
+    font-size: 25px; font-weight: 700; letter-spacing: 1px;
+    margin-bottom: 12px;
+    line-height: 1.35;
+  }
+  .event-text {
+    font-size: 14.5px; line-height: 1.85; color: #98a3c2;
+    margin-bottom: 26px;
+  }
+
+  .choices { display: grid; gap: 11px; }
+
+  .choice {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+    background: rgba(255,255,255,0.035);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 14px;
+    padding: 16px 18px;
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+    font-family: inherit;
+    width: 100%;
+    transition: .2s cubic-bezier(.22,1,.36,1);
+  }
+  .choice:hover {
+    background: rgba(109,140,255,0.13);
+    border-color: rgba(109,140,255,0.55);
+    transform: translateX(4px);
+  }
+  .choice-title { font-size: 15.5px; font-weight: 600; margin-bottom: 4px; line-height: 1.4; }
+  .choice-sub { font-size: 12.5px; color: #7c87a8; line-height: 1.5; }
+
+  .choice-risk { text-align: right; flex-shrink: 0; }
+  .dots { display: block; font-size: 9px; letter-spacing: 2px; color: #f472b6; margin-bottom: 3px; }
+  .risk-label { font-size: 10.5px; color: #6d7899; white-space: nowrap; }
+
+  .outcome {
+    background: linear-gradient(160deg, rgba(109,140,255,0.10), rgba(244,114,182,0.05));
+    border: 1px solid rgba(109,140,255,0.28);
+    border-radius: 18px;
+    padding: 28px 26px;
+    animation: fadeUp .45s cubic-bezier(.22,1,.36,1);
+  }
+  .outcome-label {
+    font-size: 11px; letter-spacing: 4px; color: #8ba4ff;
+    margin-bottom: 16px; font-weight: 600;
+  }
+  .outcome-text {
+    font-size: 15.5px; line-height: 1.9; color: #dfe6ff;
+    margin-bottom: 22px;
+  }
+  .deltas { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
+  .delta {
+    font-size: 12.5px; font-weight: 600;
+    padding: 6px 13px; border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+  }
+  .delta.up   { color: #4ade80; background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.28); }
+  .delta.down { color: #fb7185; background: rgba(251,113,133,0.12); border: 1px solid rgba(251,113,133,0.28); }
+
+  .outcome .btn-primary { margin-top: 0; padding: 13px 40px; font-size: 14.5px; }
+
+  .end-head { text-align: center; padding: 16px 0 8px; }
+  .end-label { font-size: 12px; letter-spacing: 5px; color: #6d7899; margin-bottom: 16px; }
+  .score {
+    font-size: 68px; font-weight: 800; line-height: 1;
+    background: linear-gradient(135deg, #8ba4ff, #f472b6);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    font-variant-numeric: tabular-nums;
+  }
+  .score-unit { font-size: 14px; color: #6d7899; margin-left: 4px; }
+  .rank-name { font-size: 24px; font-weight: 700; margin-top: 14px; letter-spacing: 2px; }
+  .rank-desc { font-size: 13.5px; color: #8b95b5; margin-top: 9px; line-height: 1.7; }
+  .lifespan-tag {
+    display: inline-block;
+    margin-top: 12px;
+    font-size: 12px;
+    color: #f0abfc;
+    background: rgba(244,114,182,0.12);
+    border: 1px solid rgba(244,114,182,0.3);
+    padding: 5px 14px;
+    border-radius: 999px;
+    letter-spacing: 1px;
+  }
+
+  .panel {
+    background: rgba(255,255,255,0.035);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
+    padding: 24px 22px;
+    margin-top: 18px;
+  }
+  .panel-title {
+    font-size: 12.5px; letter-spacing: 3px; color: #8ba4ff;
+    font-weight: 600; margin-bottom: 20px;
+  }
+
+  .radar-wrap { display: flex; justify-content: center; }
+  .radar { width: 100%; max-width: 330px; height: auto; }
+
+  .attr-rows { display: grid; gap: 15px; }
+  .attr-row { display: flex; align-items: center; gap: 12px; }
+  .ar-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+  .ar-body { flex: 1; min-width: 0; }
+  .ar-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .ar-name { font-size: 13px; color: #b8c2dd; font-weight: 600; }
+  .ar-val { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ar-bar { height: 6px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
+  .ar-bar i { display: block; height: 100%; border-radius: 4px; transition: width .8s cubic-bezier(.22,1,.36,1); }
+  .ar-comment { font-size: 11.5px; color: #6d7899; margin-top: 5px; }
+
+  .review-list { display: grid; gap: 14px; }
+  .review-item {
+    border-left: 2px solid rgba(109,140,255,0.4);
+    padding-left: 14px;
+  }
+  .review-head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .review-age { font-size: 11px; color: #8ba4ff; font-weight: 700; }
+  .review-title { font-size: 12.5px; color: #7c87a8; }
+  .review-choice { font-size: 14px; font-weight: 600; margin-bottom: 6px; line-height: 1.5; }
+  .review-deltas { display: flex; flex-wrap: wrap; gap: 6px; }
+  .review-deltas .delta { font-size: 11px; padding: 3px 9px; }
+
+  .alt-item {
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 11px;
+  }
+  .alt-item:last-child { margin-bottom: 0; }
+  .alt-head { font-size: 11.5px; color: #8ba4ff; font-weight: 600; margin-bottom: 7px; }
+  .alt-path { font-size: 13.5px; font-weight: 600; color: #dfe6ff; margin-bottom: 5px; }
+  .alt-text { font-size: 12.5px; line-height: 1.7; color: #7c87a8; }
+
+  .end-actions { text-align: center; margin-top: 26px; }
+
+  @media (max-width: 520px) {
+    body { padding: 14px 12px 70px; }
+    .hud { flex-direction: column; align-items: stretch; gap: 11px; padding: 13px 15px; }
+    .age-block { justify-content: center; }
+    .attrs { gap: 8px; }
+    .attr-val { font-size: 11px; }
+    .event-title { font-size: 21px; }
+    .choice { padding: 14px 15px; gap: 10px; }
+    .choice-title { font-size: 14.5px; }
+    .choice-sub { font-size: 11.5px; }
+    .outcome { padding: 22px 18px; }
+    .score { font-size: 56px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="screen active" id="screen-start">
+    <div class="start-card">
+      <div class="title">人生沙盘</div>
+      <div class="subtitle">LIFE SANDBOX · 决策推演模拟器</div>
+      <div class="intro">
+        你即将走过一段<b>浓缩的人生</b>，从 18 岁到 100 岁，经历 20 次重大抉择。<br><br>
+        每一个选择都<b>没有标准答案</b>，只有代价与收获的不同分配。<br><br>
+        这不是预言，而是一次<span class="hl">低成本的试错</span>——先在这里看清可能的后果，再去面对真实的人生。
+      </div>
+      <button class="btn-primary" id="btn-start">开始推演</button>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-origin">
+    <div class="section-title">STEP 01</div>
+    <div class="section-heading">你从什么样的起点出发？</div>
+    <div class="origin-grid" id="origin-grid"></div>
+  </div>
+
+  <div class="screen" id="screen-game">
+    <header class="hud" id="hud"></header>
+    <main id="stage"></main>
+  </div>
+
+  <div class="screen" id="screen-end">
+    <div id="end-content"></div>
+  </div>
+
+</div>
+
+<script>
+/* =========================================================
+   数据层
+   ========================================================= */
+
+const ATTR_KEYS = ['health', 'wealth', 'happiness', 'relations', 'growth'];
+
+const ATTR_META = {
+  health:    { name: '健康', color: '#34d399', icon: '❤️' },
+  wealth:    { name: '财富', color: '#fbbf24', icon: '💰' },
+  happiness: { name: '幸福', color: '#f472b6', icon: '😊' },
+  relations: { name: '关系', color: '#60a5fa', icon: '🤝' },
+  growth:    { name: '成长', color: '#a78bfa', icon: '🌱' },
+};
+
+const SCALE = 0.6;
+
+const ORIGINS = [
+  {
+    name: '普通工薪家庭',
+    desc: '父母勤恳，不富裕也不缺，一切靠自己',
+    attrs: { health: 60, wealth: 45, happiness: 55, relations: 55, growth: 55 }
+  },
+  {
+    name: '殷实之家',
+    desc: '资源充足，但你也背着父母的期待',
+    attrs: { health: 60, wealth: 75, happiness: 50, relations: 60, growth: 45 }
+  },
+  {
+    name: '寒门子弟',
+    desc: '起点低，但你能吃苦，更懂生存',
+    attrs: { health: 65, wealth: 25, happiness: 50, relations: 50, growth: 70 }
+  },
+  {
+    name: '自由派家庭',
+    desc: '父母开明，家里没什么钱，但有爱',
+    attrs: { health: 60, wealth: 35, happiness: 70, relations: 65, growth: 55 }
+  },
+];
+
+const EVENTS = [
+  /* ---------- 1 · 18岁 ---------- */
+  {
+    age: 18,
+    title: '志愿填报',
+    text: '分数已经定了。接下来这个选择，会在很大程度上决定你未来十年遇见谁、进入什么圈子。',
+    choices: [
+      {
+        title: '冲刺名校热门专业', sub: '计算机 / 金融，卷，但天花板高', risk: 3,
+        outcomes: [
+          { p: 0.6, t: '你压线录取。名校光环加上硬核专业，实习机会源源不断，代价是几乎没有喘息的时间。', e: { wealth: 8, growth: 12, relations: 8, health: -6, happiness: 2 } },
+          { p: 0.4, t: '你被调剂到冷门专业。平台还在，但你得靠自己找方向，深夜里常怀疑这四年到底值不值。', e: { growth: 7, relations: 5, happiness: -6, health: -3 } }
+        ]
+      },
+      {
+        title: '稳妥本地院校，选喜欢的专业', sub: '离家近，节奏可控', risk: 1,
+        outcomes: [
+          { p: 0.75, t: '顺利录取。课业不重，你有时间做社团、交朋友，日子过得松弛而踏实。', e: { happiness: 10, growth: 5, relations: 7, wealth: 2 } },
+          { p: 0.25, t: '专业遇冷，就业面偏窄。你开始用课余时间补技能，好在心态还稳。', e: { happiness: 3, growth: 4, wealth: -3 } }
+        ]
+      },
+      {
+        title: '追随热爱，读艺术 / 人文', sub: '不一定赚钱，但可能更像自己', risk: 3,
+        outcomes: [
+          { p: 0.5, t: '热爱撑住了四年。你的作品集和见识远超同龄人，只是账户余额一直很诚实地提醒你。', e: { happiness: 15, growth: 10, wealth: -7, relations: 4 } },
+          { p: 0.5, t: '毕业时现实扑面而来。你开始怀疑热爱能否养活自己，焦虑感逐年上升。', e: { happiness: -6, growth: 6, wealth: -9, health: -3 } }
+        ]
+      },
+      {
+        title: '不念了，直接进入社会', sub: '早四年赚钱，也早四年试错', risk: 3,
+        outcomes: [
+          { p: 0.45, t: '你早早入行，攒下第一笔钱，也比同龄人更懂人情世故。', e: { wealth: 11, growth: 4, relations: 4, happiness: -2 } },
+          { p: 0.55, t: '几年后你发现，很多门是明晃晃关着的。学历成了绕不过去的那道坎。', e: { wealth: 2, growth: -3, happiness: -7, health: -4 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 2 · 22岁 ---------- */
+  {
+    age: 22,
+    title: '第一份工作',
+    text: '毕业季。摆在面前的路不多，但每一条通向完全不同的生活节奏。',
+    choices: [
+      {
+        title: '进大厂当一颗螺丝钉', sub: '高薪、体系化，但工时极长', risk: 2,
+        outcomes: [
+          { p: 0.65, t: '起薪体面，成长飞快，你在体系里迅速学会了专业。只是每天回到家都已经很晚。', e: { wealth: 14, growth: 8, health: -10, happiness: -4, relations: -3 } },
+          { p: 0.35, t: '半年后部门调整，你被优化了。第一份工作草草收场，信心受损。', e: { wealth: 4, growth: 3, happiness: -8, health: -5 } }
+        ]
+      },
+      {
+        title: '加入创业公司核心岗', sub: '高风险高回报，一人顶三人用', risk: 3,
+        outcomes: [
+          { p: 0.4, t: '公司跑起来了，你拿到期权，能力被压缩式地拉伸。这是你最累也最兴奋的一年。', e: { wealth: 12, growth: 14, relations: 8, health: -8, happiness: 5 } },
+          { p: 0.35, t: '公司黄了。你学到很多，也第一次体会什么叫"下个月发不出工资"。', e: { growth: 8, happiness: -4, wealth: -2, health: -4 } },
+          { p: 0.25, t: '公司不上不下地拖着，你既没成长也没退路，两年就这样过去了。', e: { growth: 3, happiness: -8, health: -6, wealth: 1 } }
+        ]
+      },
+      {
+        title: '考公 / 进体制', sub: '稳定、有保障，节奏规律', risk: 1,
+        outcomes: [
+          { p: 0.7, t: '一次上岸。生活忽然变得可预测，你有了规律的作息和稳定的社交圈。', e: { wealth: 6, health: 6, happiness: 4, relations: 6, growth: 2 } },
+          { p: 0.3, t: '考了两年才上岸，期间错过了一些机会，但结果不算差。', e: { wealth: 3, happiness: -2, growth: 3, relations: 3 } }
+        ]
+      },
+      {
+        title: '继续深造，读研', sub: '推迟就业，换取更高的起点', risk: 2,
+        outcomes: [
+          { p: 0.6, t: '顺利读研，视野被彻底打开，你开始能和更厉害的人对话。', e: { growth: 14, wealth: -4, happiness: 3 } },
+          { p: 0.4, t: '读得痛苦，方向也不喜欢。毕业时发现，同龄人已经跑出去很远了。', e: { growth: 7, happiness: -5, wealth: -6, health: -3 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 3 · 25岁 ---------- */
+  {
+    age: 25,
+    title: '感情与归宿',
+    text: '身边开始有人结婚。你也在想：要不要把某段关系，变成一种长期承诺。',
+    choices: [
+      {
+        title: '和相爱的人结婚', sub: '把两个人的人生绑在一起', risk: 2,
+        outcomes: [
+          { p: 0.65, t: '你们彼此支撑，日子有了奔头。很多难熬的时刻，因为有对方而变得可以忍受。', e: { happiness: 14, relations: 12, wealth: -4, health: 3 } },
+          { p: 0.35, t: '柴米油盐磨掉了最初的浪漫，你们开始为琐事争吵，裂痕悄悄出现。', e: { happiness: -6, relations: 4, health: -3 } }
+        ]
+      },
+      {
+        title: '先搞事业，感情随缘', sub: '把最好的几年留给自己', risk: 2,
+        outcomes: [
+          { p: 0.55, t: '事业稳步上升，你越来越独立。只是某些深夜，会突然觉得房间有点空。', e: { growth: 10, wealth: 8, happiness: -5, relations: -8 } },
+          { p: 0.45, t: '你遇到了对的人，晚一点也没关系。两个人反而更清楚自己要什么。', e: { happiness: 8, relations: 6, growth: 4 } }
+        ]
+      },
+      {
+        title: '不婚 / 独身主义', sub: '按自己的节奏活，不将就', risk: 2,
+        outcomes: [
+          { p: 0.6, t: '你活得自由而自主，把时间花在真正在意的事情上，内心是安的。', e: { happiness: 8, growth: 6, relations: -4, wealth: 4 } },
+          { p: 0.4, t: '周围的催促和比较从未停止，你偶尔也会动摇，怀疑自己是不是错了。', e: { happiness: -4, relations: -6, growth: 3 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 4 · 28岁 ---------- */
+  {
+    age: 28,
+    title: '分岔路口',
+    text: '工作了几年，你开始有能力评估：现在这条路，真的是我想走的那条吗？',
+    choices: [
+      {
+        title: '跳槽去更大的平台', sub: '用一次跳跃换取加速', risk: 2,
+        outcomes: [
+          { p: 0.6, t: '薪资涨了一大截，视野和圈子都升级了。你第一次感觉到"选择比努力重要"。', e: { wealth: 14, growth: 10, relations: 6, health: -6 } },
+          { p: 0.4, t: '新环境水土不服，文化和节奏都不合。半年后你又开始刷招聘软件。', e: { wealth: 3, growth: 4, happiness: -7, health: -4 } }
+        ]
+      },
+      {
+        title: '裸辞创业', sub: '把积蓄押在一个想法上', risk: 3,
+        outcomes: [
+          { p: 0.3, t: '项目跑通了。你第一次尝到"为自己干"的滋味，那种感觉很难被替代。', e: { wealth: 16, growth: 16, happiness: 10, health: -10, relations: 4 } },
+          { p: 0.45, t: '烧光积蓄，项目没跑起来。你重新投简历，心里多了一道疤。', e: { wealth: -16, growth: 8, happiness: -10, health: -8 } },
+          { p: 0.25, t: '不上不下地勉强维持。收入不如打工，又舍不得放手，人被卡在中间。', e: { wealth: -4, growth: 6, happiness: -3, health: -6 } }
+        ]
+      },
+      {
+        title: '在职充电，读 MBA / 考证', sub: '用时间和钱换一张新门票', risk: 2,
+        outcomes: [
+          { p: 0.7, t: '你拿到了那张证书 / 学位，职业路径明显变宽，还认识了一批同路人。', e: { growth: 12, wealth: 6, relations: 8, health: -5 } },
+          { p: 0.3, t: '投入不小，回报却一般。你安慰自己：至少试过了。', e: { growth: 5, wealth: -6, health: -4 } }
+        ]
+      },
+      {
+        title: '留在原位，把当前工作做到极致', sub: '不折腾，也是一种策略', risk: 1,
+        outcomes: [
+          { p: 0.65, t: '你成了团队里最不可替代的那个人，稳定上升，收入和话语权都在涨。', e: { wealth: 8, growth: 7, relations: 5, happiness: 3, health: -2 } },
+          { p: 0.35, t: '行业开始下行，你发现所谓的"稳定"其实也很脆弱。', e: { wealth: -4, growth: 2, happiness: -6, health: -3 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 5 · 31岁 ---------- */
+  {
+    age: 31,
+    title: '买房',
+    text: '一线城市的房价依然很高。买，还是继续租，这是一道关于安全感和自由度的选择题。',
+    choices: [
+      {
+        title: '掏空积蓄，上车', sub: '背上三十年的月供', risk: 2,
+        outcomes: [
+          { p: 0.6, t: '你有了自己的家。安全感是实打实的，但每个月那笔月供也实实在在压着你。', e: { happiness: 8, relations: 6, wealth: -14, health: -5 } },
+          { p: 0.4, t: '房价横盘甚至下跌，压力却没有减少。你开始怀疑这笔钱花得值不值。', e: { happiness: -4, wealth: -10, health: -6, relations: 3 } }
+        ]
+      },
+      {
+        title: '不买，租房 + 攒钱', sub: '保住现金流和自由度', risk: 1,
+        outcomes: [
+          { p: 0.55, t: '现金流很宽松，你可以随时换城市、换工作，生活自由度比同龄人高得多。', e: { happiness: 6, wealth: 8, health: 3, relations: -4 } },
+          { p: 0.45, t: '看着房价和租金一起涨，你心里有点飘，开始怀疑自己是不是错过了什么。', e: { happiness: -6, wealth: 2, relations: -5 } }
+        ]
+      },
+      {
+        title: '换一座城市生活', sub: '用空间换时间', risk: 2,
+        outcomes: [
+          { p: 0.6, t: '节奏慢下来了，生活质量肉眼可见地提升，你终于有了下班后的生活。', e: { health: 10, happiness: 10, wealth: 4, growth: -4, relations: 4 } },
+          { p: 0.4, t: '机会明显变少，收入天花板来得比想象中早，你偶尔会怀念大城市。', e: { happiness: 3, wealth: -6, growth: -3, health: 4 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 6 · 34岁 ---------- */
+  {
+    age: 34,
+    title: '生育与自我',
+    text: '关于要不要孩子，或者要把心力投向哪里——这是最私人也最沉重的一道题。',
+    choices: [
+      {
+        title: '要一个孩子', sub: '巨大的幸福，也是巨大的消耗', risk: 2,
+        outcomes: [
+          { p: 0.7, t: '孩子带来的幸福是全新的维度。同时，你的睡眠、时间、存款都被大幅重分配。', e: { happiness: 14, relations: 10, wealth: -12, health: -8, growth: 4 } },
+          { p: 0.3, t: '育儿观念的分歧让夫妻关系变得紧张，你在疲惫中第一次感到孤独。', e: { happiness: -4, relations: -4, wealth: -10, health: -10 } }
+        ]
+      },
+      {
+        title: '选择丁克', sub: '把人生留给自己和伴侣', risk: 2,
+        outcomes: [
+          { p: 0.6, t: '两个人活得很自由，事业从容，说走就走的旅行随时可以安排。', e: { happiness: 6, wealth: 8, health: 4, relations: -6 } },
+          { p: 0.4, t: '家里的催促从未停止，某个安静的夜晚你也会想：是不是错过了什么。', e: { happiness: -5, relations: -8, health: 2 } }
+        ]
+      },
+      {
+        title: '专注事业与自我实现', sub: '把全部资源押在自己身上', risk: 3,
+        outcomes: [
+          { p: 0.6, t: '你在事业上迎来高光时刻，收入和社会认可一起到来，那是很爽的几年。', e: { growth: 12, wealth: 10, happiness: 4, relations: -6, health: -5 } },
+          { p: 0.4, t: '某个深夜你忽然怀疑：这一切到底是为了什么。成就感没能填满那个空洞。', e: { happiness: -8, growth: 4, wealth: 4 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 7 · 38岁 ---------- */
+  {
+    age: 38,
+    title: '职业转型',
+    text: '你在原来的轨道上已经跑了十几年。是继续深耕，还是换一条赛道重新开始？',
+    choices: [
+      {
+        title: '转型进入新行业', sub: 'AI / 新能源等风口赛道', risk: 3,
+        outcomes: [
+          { p: 0.5, t: '你踩中了风口，收入和视野一起涨。虽然是从头学，但你觉得整个人重新活过来了。', e: { wealth: 16, growth: 14, happiness: 6, health: -6 } },
+          { p: 0.5, t: '转行成本比想象中高得多，你在新领域从底层做起，收入反而下降。', e: { wealth: -8, growth: 8, happiness: -5, health: -5 } }
+        ]
+      },
+      {
+        title: '做副业 / 个人品牌', sub: '在主业之外开一扇窗', risk: 2,
+        outcomes: [
+          { p: 0.45, t: '副业跑通了，收入结构开始改变。你第一次拥有了"不靠公司也能活"的底气。', e: { wealth: 10, growth: 10, happiness: 5, health: -7 } },
+          { p: 0.55, t: '主业副业两头顾，哪头都没做好。你长期睡眠不足，身心俱疲。', e: { wealth: 3, growth: 4, health: -12, happiness: -6 } }
+        ]
+      },
+      {
+        title: '守住位置，深耕专业', sub: '做那个别人绕不开的人', risk: 1,
+        outcomes: [
+          { p: 0.7, t: '你成了领域内的专家，收入稳定，受人尊重，也带起了自己的团队。', e: { wealth: 9, growth: 8, relations: 5, happiness: 4, health: -2 } },
+          { p: 0.3, t: '行业结构变化，你引以为傲的经验开始贬值，位置有些松动了。', e: { wealth: -3, growth: 2, happiness: -5, health: -3 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 8 · 43岁 ---------- */
+  {
+    age: 43,
+    title: '财务决策',
+    text: '你手里终于有了一笔可观的积蓄。这笔钱怎么放，会直接影响你后半生的底气。',
+    choices: [
+      {
+        title: '重仓权益类资产', sub: '博一个更高的天花板', risk: 3,
+        outcomes: [
+          { p: 0.45, t: '赶上周期，资产翻了一倍。你第一次感到"钱生钱"的力量。', e: { wealth: 18, happiness: 6 } },
+          { p: 0.55, t: '市场持续下行，账户腰斩。你在深夜里反复刷新行情，睡不好觉。', e: { wealth: -18, happiness: -10, health: -5 } }
+        ]
+      },
+      {
+        title: '稳健配置', sub: '存款 + 保险 + 一点基金', risk: 1,
+        outcomes: [
+          { p: 0.8, t: '资产稳步增值，你睡得着觉。虽然不刺激，但这份安心本身就是回报。', e: { wealth: 7, health: 3, happiness: 4 } },
+          { p: 0.2, t: '跑输通胀，看着别人的收益你有点失落，但也仅此而已。', e: { wealth: 1, happiness: -2 } }
+        ]
+      },
+      {
+        title: '投资自己', sub: '健康、学习、体验，都算投资', risk: 1,
+        outcomes: [
+          { p: 0.7, t: '你的身体和状态都在变好，生活重新有了滋味。这可能是回报率最高的一笔。', e: { health: 12, happiness: 10, growth: 8, wealth: -6 } },
+          { p: 0.3, t: '钱花了不少，但没能坚持下来，效果有限。', e: { health: 3, happiness: 2, wealth: -8 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 9 · 48岁 ---------- */
+  {
+    age: 48,
+    title: '身体警报',
+    text: '体检查出了一些指标异常。医生说：现在处理，还来得及。',
+    choices: [
+      {
+        title: '认真治疗，全面调整生活方式', sub: '该花的钱花，该停的事停', risk: 1,
+        outcomes: [
+          { p: 0.8, t: '及时干预，身体恢复得不错。你开始认真吃饭、规律睡觉，重新认识了自己的身体。', e: { health: 14, happiness: 4, wealth: -8 } },
+          { p: 0.2, t: '需要长期管理。虽然麻烦，但至少控制住了。', e: { health: 4, happiness: -4, wealth: -12 } }
+        ]
+      },
+      {
+        title: '太忙了，先扛着', sub: '等这一阵过去再说', risk: 3,
+        outcomes: [
+          { p: 0.35, t: '暂时没出大事，但隐患就这样埋下了。你其实心里清楚。', e: { wealth: 4, health: -10 } },
+          { p: 0.65, t: '某天你倒下了，被迫停工半年。所有"等忙完"的计划都被打乱。', e: { health: -18, wealth: -10, happiness: -10 } }
+        ]
+      },
+      {
+        title: '提前开始运动 + 规律作息', sub: '在出事之前先自救', risk: 1,
+        outcomes: [
+          { p: 0.75, t: '坚持了半年，你的状态比十年前还好。周围人都在问你怎么做到的。', e: { health: 16, happiness: 8, growth: 4, wealth: -3 } },
+          { p: 0.25, t: '坚持了一阵就断了，效果一般，但总比没有好。', e: { health: 5, happiness: 2 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 10 · 53岁 ---------- */
+  {
+    age: 53,
+    title: '父母老去',
+    text: '父母的身体明显不如从前了。这件事迟早要来，只是没人告诉你该怎么准备。',
+    choices: [
+      {
+        title: '接到身边亲自照顾', sub: '用时间换陪伴', risk: 2,
+        outcomes: [
+          { p: 0.65, t: '一家人在一起，虽然累，但心里是踏实的。你庆幸自己没有缺席。', e: { relations: 14, happiness: 6, health: -6, wealth: -8 } },
+          { p: 0.35, t: '生活习惯和观念冲突不断，家里气氛紧张，你两头受气。', e: { relations: 4, happiness: -6, health: -8, wealth: -6 } }
+        ]
+      },
+      {
+        title: '请专业机构 / 护工', sub: '用钱换专业照护', risk: 1,
+        outcomes: [
+          { p: 0.7, t: '专业照护让老人过得舒适，你也能兼顾工作，只是钱包瘪了不少。', e: { relations: 6, wealth: -14, happiness: 3, health: 2 } },
+          { p: 0.3, t: '老人不适应陌生环境，你每次探望都带着愧疚。', e: { relations: 2, happiness: -8, wealth: -12 } }
+        ]
+      },
+      {
+        title: '远程支持，各自生活', sub: '保持距离，也保持体面', risk: 2,
+        outcomes: [
+          { p: 0.5, t: '各自安好，你有自己的生活，父母也不想成为负担。', e: { relations: -6, happiness: -3, wealth: 4 } },
+          { p: 0.5, t: '一次突发状况让你赶回去时已经晚了。那份后悔会陪你很久。', e: { relations: -10, happiness: -10, health: -5 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 11 · 60岁 ---------- */
+  {
+    age: 60,
+    title: '退休时刻',
+    text: '职业生涯结束了。接下来的三四十年，你打算怎么过？',
+    choices: [
+      {
+        title: '按计划退休，开启第二人生', sub: '旅行、爱好、老友', risk: 1,
+        outcomes: [
+          { p: 0.7, t: '你终于有时间做那些一直想做的事。日子舒展而明亮，你觉得自己赚到了。', e: { happiness: 16, health: 8, relations: 8, wealth: -8 } },
+          { p: 0.3, t: '突然闲下来反而空落，你不知道自己该是谁、该做什么。', e: { happiness: -4, health: 2, relations: 4 } }
+        ]
+      },
+      {
+        title: '退而不休，继续做顾问', sub: '保持节奏和存在感', risk: 2,
+        outcomes: [
+          { p: 0.6, t: '你依然被需要，收入也在继续。这种"还有用"的感觉让你很安心。', e: { wealth: 10, growth: 6, happiness: 3, health: -6 } },
+          { p: 0.4, t: '身体开始报警，你不得不停下来，但已经比预期晚了很多。', e: { health: -10, wealth: 4, happiness: -3 } }
+        ]
+      },
+      {
+        title: '搬去小城或乡下', sub: '换个环境重新生活', risk: 2,
+        outcomes: [
+          { p: 0.7, t: '环境好、节奏慢，你的身体和心情都好了起来，还认识了新邻居。', e: { health: 12, happiness: 12, relations: 4, wealth: -4 } },
+          { p: 0.3, t: '医疗和生活便利性不足，你开始频繁往返于两地之间。', e: { health: -4, happiness: -2, relations: -4 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 12 · 63岁 ---------- */
+  {
+    age: 63,
+    title: '退休后的第一年',
+    text: '不用打卡的日子正式开始。时间忽然变成了一整块，怎么切、怎么用，全看你自己。',
+    choices: [
+      {
+        title: '趁还走得动，去环游世界', sub: '把年轻时欠自己的补回来', risk: 2,
+        outcomes: [
+          { p: 0.7, t: '你终于见到了那些只在书里读过的地方。回来后整个人都在发光，逢人就讲路上的故事。', e: { happiness: 12, growth: 8, health: -4, wealth: -10 } },
+          { p: 0.3, t: '旅途奔波，身体比想象中吃不消。你提前结束行程回家，有点遗憾，但不算后悔。', e: { health: -8, happiness: 4, wealth: -8 } }
+        ]
+      },
+      {
+        title: '帮子女带孙辈', sub: '把时间交给下一代', risk: 2,
+        outcomes: [
+          { p: 0.65, t: '每天接送、做饭、讲故事，累是真累，但家里有孩子的笑声，你心里是满的。', e: { relations: 12, happiness: 8, health: -8, wealth: -4 } },
+          { p: 0.35, t: '育儿观念差了一代人，出力不讨好。你开始怀疑自己是不是管太多了。', e: { relations: 2, happiness: -6, health: -6 } }
+        ]
+      },
+      {
+        title: '发展一门新爱好', sub: '书法、摄影、乐器、园艺……', risk: 1,
+        outcomes: [
+          { p: 0.75, t: '你在社区活动里找到了新的圈子，生活重新有了节奏和盼头。', e: { growth: 10, happiness: 10, relations: 6, wealth: -3 } },
+          { p: 0.25, t: '三分钟热度，装备买了不少，最后都落了灰。', e: { happiness: 2, wealth: -5 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 13 · 67岁 ---------- */
+  {
+    age: 67,
+    title: '老伴的健康',
+    text: '老伴查出了慢性病，需要长期照顾。你们第一次真切地意识到：谁先走，谁后走，是个躲不开的问题。',
+    choices: [
+      {
+        title: '亲自照顾，寸步不离', sub: '用陪伴对抗时间', risk: 2,
+        outcomes: [
+          { p: 0.7, t: '你在照顾中重新认识了这个人。那份默契，比年轻时更深、更沉。', e: { relations: 14, happiness: 4, health: -10, wealth: -6 } },
+          { p: 0.3, t: '你把自己也累垮了，两个人都进了医院。子女不得不请假回来轮班。', e: { health: -16, relations: 4, happiness: -4 } }
+        ]
+      },
+      {
+        title: '请专业护工，自己搭把手', sub: '专业的事交给专业的人', risk: 1,
+        outcomes: [
+          { p: 0.65, t: '专业照护让老伴舒服很多，你也保住了体力和尊严。钱花得心疼，但值。', e: { wealth: -12, relations: 8, health: 4, happiness: 2 } },
+          { p: 0.35, t: '老伴觉得被"外包"了，情绪低落。你只好花更多时间陪在身边解释。', e: { wealth: -10, relations: 2, happiness: -4 } }
+        ]
+      },
+      {
+        title: '两个人一起调整生活方式', sub: '一起吃饭、一起走路、一起早睡', risk: 1,
+        outcomes: [
+          { p: 0.6, t: '互相监督，身体状况都好转了。你们成了小区里最规律的一对。', e: { health: 10, relations: 10, happiness: 8, wealth: -4 } },
+          { p: 0.4, t: '改变几十年的习惯太难，坚持了三个月就回到原样。但至少努力过。', e: { health: 3, relations: 4, happiness: 2 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 14 · 72岁 ---------- */
+  {
+    age: 72,
+    title: '代际关系',
+    text: '子女有了自己的家庭和节奏。你开始思考：在这个新的家庭结构里，自己该站在什么位置。',
+    choices: [
+      {
+        title: '搬去帮子女带孩子', sub: '三代同堂，热热闹闹', risk: 2,
+        outcomes: [
+          { p: 0.55, t: '家里总是很热闹，你觉得自己还有用。只是属于你自己的时间，几乎没有了。', e: { relations: 12, happiness: 6, health: -12, wealth: -5 } },
+          { p: 0.45, t: '两代人的边界不断被踩，委屈和疲惫一起涌上来。你开始想回自己的老房子。', e: { relations: -4, happiness: -8, health: -8 } }
+        ]
+      },
+      {
+        title: '出钱不出力，保持边界', sub: '该帮的帮，日子各过各的', risk: 1,
+        outcomes: [
+          { p: 0.7, t: '边界清晰，大家都舒服。逢年过节见面反而亲热，你也有自己的生活。', e: { wealth: -10, relations: 6, health: 6, happiness: 4 } },
+          { p: 0.3, t: '子女觉得你不够投入，话里话外有些埋怨。你有点委屈，但没改主意。', e: { relations: -4, happiness: -3, health: 4 } }
+        ]
+      },
+      {
+        title: '保持距离，过自己的日子', sub: '不打扰，也不被打扰', risk: 2,
+        outcomes: [
+          { p: 0.6, t: '你读书、写字、会朋友，子女也乐得清闲。这种"客气"反而让关系更长久。', e: { relations: -4, happiness: 6, health: 8, growth: 4 } },
+          { p: 0.4, t: '看到别人家儿孙绕膝，你心里偶尔会空一下。但你知道，重来一次你还是会这么选。', e: { happiness: -5, relations: -6, health: 3 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 15 · 76岁 ---------- */
+  {
+    age: 76,
+    title: '一次大手术',
+    text: '医生建议做一次手术。成功率不低，但恢复期很长，也不排除并发症。',
+    choices: [
+      {
+        title: '积极手术', sub: '赌一把更好的生活质量', risk: 3,
+        outcomes: [
+          { p: 0.65, t: '手术成功。你重新拿回了几年有质量的生活，觉得这一把赌对了。', e: { health: 10, happiness: 4, wealth: -14 } },
+          { p: 0.35, t: '术后恢复不理想，需要长期康复。你开始频繁进出医院，生活半径缩小到病房和家。', e: { health: -12, happiness: -6, wealth: -16 } }
+        ]
+      },
+      {
+        title: '保守治疗', sub: '接受身体的上限', risk: 2,
+        outcomes: [
+          { p: 0.6, t: '你接受了身体的限制，日子慢下来，反而平静。该吃药吃药，该复查复查。', e: { health: -4, happiness: 4, relations: 4, wealth: -4 } },
+          { p: 0.4, t: '病情反复，你开始频繁进出医院。生活质量受到明显影响。', e: { health: -10, happiness: -4, wealth: -8 } }
+        ]
+      },
+      {
+        title: '中医调理 + 生活方式干预', sub: '慢养，相信身体的韧性', risk: 1,
+        outcomes: [
+          { p: 0.55, t: '身体有了起色，指标慢慢回稳。你相信慢养的力量，也更愿意听身体的话。', e: { health: 6, happiness: 5, growth: 4, wealth: -4 } },
+          { p: 0.45, t: '效果不明显，但心态上更放松了。你安慰自己：至少没挨那一刀。', e: { health: -2, happiness: 3, wealth: -3 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 16 · 80岁 ---------- */
+  {
+    age: 80,
+    title: '认知衰退的阴影',
+    text: '你开始偶尔忘事：钥匙放哪了、刚才要说什么。家人有点担心，你自己也有点。',
+    choices: [
+      {
+        title: '主动做认知训练', sub: '读书、下棋、背诗、学新东西', risk: 1,
+        outcomes: [
+          { p: 0.7, t: '你每天坚持，脑子还很清楚。医生说你比同龄人状态好不少。', e: { growth: 8, health: 6, happiness: 5, wealth: -3 } },
+          { p: 0.3, t: '训练坚持不下来，效果有限。但至少你努力过，心里踏实。', e: { growth: 3, health: 2, happiness: 2 } }
+        ]
+      },
+      {
+        title: '顺其自然', sub: '老了就是老了，不折腾', risk: 2,
+        outcomes: [
+          { p: 0.5, t: '只是偶尔忘事，日子照旧。你不太把这事放在心上。', e: { health: -4, happiness: 2, relations: 2 } },
+          { p: 0.5, t: '忘性越来越大，家人开始担心。你自己也感到有些力不从心。', e: { health: -12, happiness: -6, relations: -4 } }
+        ]
+      },
+      {
+        title: '提前交代后事', sub: '趁还清楚，把该说的都说了', risk: 1,
+        outcomes: [
+          { p: 0.75, t: '你把想说的话都说了，想安排的事都安排了。心里忽然轻了一大截。', e: { growth: 8, relations: 10, happiness: 6, wealth: -2 } },
+          { p: 0.25, t: '子女觉得不吉利，谈得不欢而散。你有些失落，但没怪他们。', e: { relations: -4, happiness: -3 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 17 · 85岁 ---------- */
+  {
+    age: 85,
+    title: '失去伴侣',
+    text: '相伴几十年的人先走了。房子忽然变得很大，声音忽然变得很少。',
+    choices: [
+      {
+        title: '搬去养老社区', sub: '有人照应，也有人说话', risk: 2,
+        outcomes: [
+          { p: 0.6, t: '有人做饭、有人查房、有人一起下棋。你慢慢适应了一个人的日子。', e: { relations: 8, happiness: 4, health: 6, wealth: -10 } },
+          { p: 0.4, t: '离开住了几十年的家，你很长时间缓不过来。夜里还是会醒。', e: { happiness: -6, health: -4, wealth: -8 } }
+        ]
+      },
+      {
+        title: '和子女同住', sub: '回到有人的屋檐下', risk: 2,
+        outcomes: [
+          { p: 0.5, t: '儿孙绕膝，你觉得安心。虽然有些客气，但总比一个人强。', e: { relations: 8, happiness: 4, health: 4, wealth: -4 } },
+          { p: 0.5, t: '寄人篱下的感觉让你不自在。你开始想念自己的老房子和老邻居。', e: { happiness: -6, relations: -2, health: -2 } }
+        ]
+      },
+      {
+        title: '独居，自己撑住', sub: '在熟悉的地方，按熟悉的方式活', risk: 3,
+        outcomes: [
+          { p: 0.45, t: '你学会了一个人生活，把日子过成了自己的样子。邻居说你硬气。', e: { growth: 8, happiness: 2, health: -4, relations: -2 } },
+          { p: 0.55, t: '孤独像潮水一样，在夜里涌上来。你开始害怕太安静的房间。', e: { happiness: -10, health: -8, relations: -4 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 18 · 90岁 ---------- */
+  {
+    age: 90,
+    title: '生命的长度',
+    text: '身体各项机能都在缓慢下坡。医生问：如果出现紧急情况，要不要全力抢救？',
+    choices: [
+      {
+        title: '继续积极治疗', sub: '能多活一天是一天', risk: 2,
+        outcomes: [
+          { p: 0.55, t: '医疗维持了生命，但质量打了折扣。你清醒的时候越来越少。', e: { health: 4, wealth: -16, happiness: -6, relations: 2 } },
+          { p: 0.45, t: '你开始怀疑这些治疗到底值不值。签字的时候，手有点抖。', e: { health: -4, wealth: -12, happiness: -8 } }
+        ]
+      },
+      {
+        title: '选择舒适照护', sub: '活得好，比活得久重要', risk: 1,
+        outcomes: [
+          { p: 0.7, t: '你把重点放在"舒服"上。家人也松了一口气，围着你说了很多平时不会说的话。', e: { happiness: 10, relations: 10, health: -2, wealth: -6 } },
+          { p: 0.3, t: '身体每况愈下，但你不后悔这个选择。你走得很安静。', e: { health: -6, happiness: 6, relations: 6, wealth: -8 } }
+        ]
+      },
+      {
+        title: '把时间留给回忆', sub: '讲给孙辈听，或者写下来', risk: 1,
+        outcomes: [
+          { p: 0.75, t: '你开始讲那些旧时光，孙辈听得入迷。你发现自己的故事，原来也是别人的宝藏。', e: { growth: 10, happiness: 10, relations: 8, health: -2 } },
+          { p: 0.25, t: '回忆太多，情绪起伏。有些事你一直没放下，讲着讲着就沉默了。', e: { happiness: -4, growth: 4, health: -4 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 19 · 95岁 ---------- */
+  {
+    age: 95,
+    title: '最后的礼物',
+    text: '你开始认真思考：这一生攒下的东西，最后要留在哪里。',
+    choices: [
+      {
+        title: '把大部分财产捐给公益', sub: '让钱流向更需要的地方', risk: 2,
+        outcomes: [
+          { p: 0.7, t: '你签下捐赠协议的那一刻，觉得自己这一生完整了。有人会记得你的名字。', e: { growth: 10, happiness: 10, wealth: -12, relations: -4 } },
+          { p: 0.3, t: '子女不理解，关系出现了裂痕。你有些难过，但没有改主意。', e: { relations: -8, happiness: 2, wealth: -10 } }
+        ]
+      },
+      {
+        title: '留给子女', sub: '把该给的都给了', risk: 1,
+        outcomes: [
+          { p: 0.65, t: '你把该给的都给了，心里踏实。子女围着你，说了很多感谢的话。', e: { relations: 10, happiness: 6, wealth: -14 } },
+          { p: 0.35, t: '分配不均，子女之间有了嫌隙。你躺在床上，听着客厅里的争执，叹了口气。', e: { relations: -6, happiness: -6, wealth: -12 } }
+        ]
+      },
+      {
+        title: '用于自己的照护', sub: '不给孩子添麻烦', risk: 1,
+        outcomes: [
+          { p: 0.75, t: '你把自己的晚年安排得妥妥当当。护工专业、环境舒适，你不欠任何人。', e: { health: 4, happiness: 6, wealth: -12, relations: -2 } },
+          { p: 0.25, t: '钱花得比想象中快。你开始担心不够用，不得不降低照护标准。', e: { health: -4, happiness: -4, wealth: -10 } }
+        ]
+      }
+    ]
+  },
+
+  /* ---------- 20 · 100岁 ---------- */
+  {
+    age: 100,
+    title: '世纪人生',
+    text: '你活过了一百年。记者来了，社区来了，曾孙辈也来了。他们问你：这一生，最想留下什么？',
+    choices: [
+      {
+        title: '接受采访，分享人生', sub: '把故事讲给更多人听', risk: 1,
+        outcomes: [
+          { p: 0.7, t: '你成了社区里的"活历史"。年轻人围着你，听你讲那些已经消失的年代。', e: { growth: 10, happiness: 10, relations: 8, health: -2 } },
+          { p: 0.3, t: '热闹过后，你更觉得疲惫。人多的时候，你反而有点想念安静。', e: { happiness: 4, health: -6, relations: 4 } }
+        ]
+      },
+      {
+        title: '安静地和家人在一起', sub: '不折腾，就待着', risk: 1,
+        outcomes: [
+          { p: 0.8, t: '一屋子人围着你，有人握你的手，有人给你掖被角。你觉得自己这一生值了。', e: { relations: 14, happiness: 12, health: -2 } },
+          { p: 0.2, t: '人太多，你有些吃不消。但看到他们都在，你还是笑了。', e: { relations: 8, happiness: 6, health: -6 } }
+        ]
+      },
+      {
+        title: '用最后的时间，写下来', sub: '把一百年的故事留给世界', risk: 1,
+        outcomes: [
+          { p: 0.75, t: '你把一百年的故事写成了册子。那是你留给世界的东西，比钱更重。', e: { growth: 14, happiness: 8, health: -4, wealth: -2 } },
+          { p: 0.25, t: '写着写着，你发现自己有些事还没放下。笔停在半空，很久没有落下去。', e: { growth: 6, happiness: -2, health: -4 } }
+        ]
+      }
+    ]
+  }
+];
+
+/* =========================================================
+   状态与逻辑
+   ========================================================= */
+
+const S = {
+  attrs: {},
+  age: 18,
+  idx: 0,
+  history: [],
+};
+
+const $ = id => document.getElementById(id);
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+  $(id).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderOrigins() {
+  const grid = $('origin-grid');
+  grid.innerHTML = ORIGINS.map((o, i) => `
+    <button class="origin-card" data-i="${i}">
+      <div>
+        <div class="origin-name">${o.name}</div>
+        <div class="origin-desc">${o.desc}</div>
+      </div>
+      <div class="origin-preview">
+        ${ATTR_KEYS.map(k => `
+          <div class="op-dot"><i style="height:${o.attrs[k]}%;background:${ATTR_META[k].color}"></i></div>
+        `).join('')}
+      </div>
+    </button>
+  `).join('');
+
+  grid.querySelectorAll('.origin-card').forEach(btn => {
+    btn.addEventListener('click', () => {
+      startGame(ORIGINS[parseInt(btn.dataset.i)]);
+    });
+  });
+}
+
+function startGame(origin) {
+  S.attrs = { ...origin.attrs };
+  S.idx = 0;
+  S.history = [];
+  S.age = EVENTS[0].age;
+  showScreen('screen-game');
+  renderEvent();
+}
+
+function renderHUD() {
+  $('hud').innerHTML = `
+    <div class="age-block">
+      <span class="age-num">${S.age}</span><span class="age-unit">岁</span>
+    </div>
+    <div class="attrs">
+      ${ATTR_KEYS.map(k => {
+        const m = ATTR_META[k], v = S.attrs[k];
+        return `
+          <div class="attr">
+            <div class="attr-top">
+              <span class="attr-icon">${m.icon}</span>
+              <span class="attr-val" style="color:${m.color}">${Math.round(v)}</span>
+            </div>
+            <div class="bar"><i style="width:${v}%;background:${m.color}"></i></div>
+          </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderEvent() {
+  const ev = EVENTS[S.idx];
+  S.age = ev.age;
+  renderHUD();
+
+  const stage = $('stage');
+  stage.innerHTML = `
+    <div class="event">
+      <div class="event-meta">
+        <span class="age-tag">${ev.age} 岁</span>
+        <span class="step">第 ${S.idx + 1} / ${EVENTS.length} 次抉择</span>
+      </div>
+      <h2 class="event-title">${ev.title}</h2>
+      <p class="event-text">${ev.text}</p>
+      <div class="choices">
+        ${ev.choices.map((c, i) => `
+          <button class="choice" data-i="${i}">
+            <div class="choice-main">
+              <div class="choice-title">${c.title}</div>
+              <div class="choice-sub">${c.sub}</div>
+            </div>
+            <div class="choice-risk">
+              <span class="dots">${'●'.repeat(c.risk)}${'○'.repeat(3 - c.risk)}</span>
+              <span class="risk-label">${['', '低风险', '中风险', '高风险'][c.risk]}</span>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  stage.querySelectorAll('.choice').forEach(btn => {
+    btn.addEventListener('click', () => choose(parseInt(btn.dataset.i)));
+  });
+}
+
+function choose(choiceIndex) {
+  const ev = EVENTS[S.idx];
+  const choice = ev.choices[choiceIndex];
+
+  const roll = Math.random();
+  let acc = 0;
+  let outcome = choice.outcomes[choice.outcomes.length - 1];
+  for (const o of choice.outcomes) {
+    acc += o.p;
+    if (roll < acc) { outcome = o; break; }
+  }
+
+  const deltas = applyEffects(outcome.e);
+
+  S.history.push({
+    age: ev.age,
+    title: ev.title,
+    choice: choice.title,
+    outcome: outcome.t,
+    deltas,
+    evIndex: S.idx,
+    choiceIndex,
+  });
+
+  showOutcome(outcome, deltas);
+}
+
+function applyEffects(effects) {
+  const deltas = {};
+  for (const k of ATTR_KEYS) {
+    const raw = effects[k] || 0;
+    const d = Math.round(raw * SCALE);
+    const before = S.attrs[k];
+    S.attrs[k] = Math.max(0, Math.min(100, before + d));
+    deltas[k] = Math.round(S.attrs[k] - before);
+  }
+  return deltas;
+}
+
+function showOutcome(outcome, deltas) {
+  renderHUD();
+  const isLast = S.idx >= EVENTS.length - 1;
+
+  const deltaHTML = ATTR_KEYS
+    .filter(k => deltas[k] !== 0)
+    .map(k => {
+      const d = deltas[k], m = ATTR_META[k];
+      return `<span class="delta ${d > 0 ? 'up' : 'down'}">${m.icon} ${m.name} ${d > 0 ? '+' : ''}${d}</span>`;
+    }).join('');
+
+  $('stage').innerHTML = `
+    <div class="outcome">
+      <div class="outcome-label">推演结果</div>
+      <p class="outcome-text">${outcome.t}</p>
+      <div class="deltas">${deltaHTML || '<span class="delta up">状态无明显变化</span>'}</div>
+      <button class="btn-primary" id="next-btn">${isLast ? '查看人生报告 →' : '继续 →'}</button>
+    </div>
+  `;
+
+  $('next-btn').addEventListener('click', () => {
+    if (isLast) {
+      showEnd();
+    } else {
+      S.idx++;
+      renderEvent();
+    }
+  });
+}
+
+function calcScore() {
+  const a = S.attrs;
+  return Math.round(
+    a.health * 0.20 +
+    a.wealth * 0.15 +
+    a.happiness * 0.30 +
+    a.relations * 0.20 +
+    a.growth * 0.15
+  );
+}
+
+function getRank(score) {
+  if (score >= 82) return { name: '圆满人生', desc: '你几乎踩中了每一个关键节点，也守住了真正重要的东西。' };
+  if (score >= 68) return { name: '丰盛人生', desc: '有得有失，但你整体活得漂亮，没什么大的遗憾。' };
+  if (score >= 55) return { name: '安稳人生', desc: '没有大起大落，日子过得踏实，只是偶尔会想"如果当初"。' };
+  if (score >= 42) return { name: '起伏人生', desc: '你付出了代价，也换回了一些东西。这就是大多数人的样子。' };
+  if (score >= 28) return { name: '艰难人生', desc: '很多选择都不在你掌控之内，你一直在用有限的牌打一手硬仗。' };
+  return { name: '耗尽人生', desc: '你一直在为生存奔跑，几乎没有喘息的机会。' };
+}
+
+function attrComment(k, v) {
+  const bands = {
+    health:    ['身体已经严重透支', '健康是个隐患', '状态尚可', '身体状态很不错'],
+    wealth:    ['财务相当紧张', '现金流偏紧', '财务稳健', '财务自由度高'],
+    happiness: ['很少感到真正的快乐', '情绪起伏比较大', '整体还算知足', '内心丰盈安定'],
+    relations: ['身边几乎没有人可依靠', '关系比较疏离', '有几个能说真话的人', '关系网温暖而结实'],
+    growth:    ['几乎停止了成长', '成长比较有限', '还在慢慢进步', '一直在拓展边界'],
+  };
+  const idx = v >= 75 ? 3 : v >= 50 ? 2 : v >= 25 ? 1 : 0;
+  return bands[k][idx];
+}
+
+function radarSVG(attrs) {
+  const cx = 150, cy = 150, R = 92;
+  const n = 5;
+  const ang = i => -Math.PI / 2 + i * 2 * Math.PI / n;
+  const pt = (i, r) => [
+    +(cx + Math.cos(ang(i)) * r).toFixed(1),
+    +(cy + Math.sin(ang(i)) * r).toFixed(1)
+  ];
+
+  let rings = '';
+  for (let lv = 1; lv <= 4; lv++) {
+    const pts = Array.from({ length: n }, (_, i) => pt(i, R * lv / 4).join(',')).join(' ');
+    rings += `<polygon points="${pts}" fill="none" stroke="rgba(255,255,255,0.07)" />`;
+  }
+
+  let axes = '';
+  for (let i = 0; i < n; i++) {
+    const [x, y] = pt(i, R);
+    axes += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="rgba(255,255,255,0.09)" />`;
+  }
+
+  const dataPts = ATTR_KEYS.map((k, i) => pt(i, R * attrs[k] / 100));
+  const poly = dataPts.map(p => p.join(',')).join(' ');
+
+  let labels = '';
+  ATTR_KEYS.forEach((k, i) => {
+    const m = ATTR_META[k];
+    const [lx, ly] = pt(i, R + 24);
+    labels += `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle"
+                 font-size="12" font-weight="600" fill="${m.color}">${m.name}</text>`;
+    const [vx, vy] = pt(i, R + 40);
+    labels += `<text x="${vx}" y="${vy}" text-anchor="middle" dominant-baseline="middle"
+                 font-size="10" fill="rgba(255,255,255,0.4)">${Math.round(attrs[k])}</text>`;
+  });
+
+  const dots = dataPts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#fff" />`).join('');
+
+  return `
+    <svg viewBox="0 0 300 310" class="radar">
+      ${rings}${axes}
+      <polygon points="${poly}" fill="rgba(109,140,255,0.26)" stroke="#6d8cff" stroke-width="2" stroke-linejoin="round" />
+      ${dots}${labels}
+    </svg>`;
+}
+
+function showEnd() {
+  const score = calcScore();
+  const rank = getRank(score);
+  const attrs = S.attrs;
+
+  const reviewHTML = S.history.map(h => {
+    const dHTML = ATTR_KEYS
+      .filter(k => h.deltas[k] !== 0)
+      .map(k => {
+        const d = h.deltas[k], m = ATTR_META[k];
+        return `<span class="delta ${d > 0 ? 'up' : 'down'}">${m.icon} ${d > 0 ? '+' : ''}${d}</span>`;
+      }).join('');
+    return `
+      <div class="review-item">
+        <div class="review-head">
+          <span class="review-age">${h.age} 岁</span>
+          <span class="review-title">${h.title}</span>
+        </div>
+        <div class="review-choice">${h.choice}</div>
+        <div class="review-deltas">${dHTML}</div>
+      </div>`;
+  }).join('');
+
+  const n = S.history.length;
+  const picks = [0, Math.floor(n / 2), n - 1].filter((v, i, arr) => arr.indexOf(v) === i);
+  const altHTML = picks.map(pi => {
+    const h = S.history[pi];
+    const ev = EVENTS[h.evIndex];
+    const alts = ev.choices.filter((_, i) => i !== h.choiceIndex);
+    if (!alts.length) return '';
+    const alt = alts[0];
+    const likely = alt.outcomes.reduce((a, b) => (a.p >= b.p ? a : b));
+    return `
+      <div class="alt-item">
+        <div class="alt-head">${h.age} 岁 · ${h.title}</div>
+        <div class="alt-path">另一条路：${alt.title}</div>
+        <div class="alt-text">最可能发生：${likely.t}</div>
+      </div>`;
+  }).join('');
+
+  const attrRowsHTML = ATTR_KEYS.map(k => {
+    const m = ATTR_META[k], v = Math.round(attrs[k]);
+    return `
+      <div class="attr-row">
+        <div class="ar-icon">${m.icon}</div>
+        <div class="ar-body">
+          <div class="ar-top">
+            <span class="ar-name">${m.name}</span>
+            <span class="ar-val" style="color:${m.color}">${v}</span>
+          </div>
+          <div class="ar-bar"><i style="width:${v}%;background:${m.color}"></i></div>
+          <div class="ar-comment">${attrComment(k, v)}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const lifespan = S.history.length ? S.history[S.history.length - 1].age : 0;
+
+  $('end-content').innerHTML = `
+    <div class="end-head">
+      <div class="end-label">人 生 推 演 报 告</div>
+      <div class="score">${score}<span class="score-unit">分</span></div>
+      <div class="rank-name">${rank.name}</div>
+      <div class="rank-desc">${rank.desc}</div>
+      <div class="lifespan-tag">推演跨度 · 18 岁 → ${lifespan} 岁</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">人 生 面 貌</div>
+      <div class="radar-wrap">${radarSVG(attrs)}</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">分 项 解 读</div>
+      <div class="attr-rows">${attrRowsHTML}</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">关 键 决 策 回 放</div>
+      <div class="review-list">${reviewHTML}</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">如 果 当 初</div>
+      ${altHTML}
+    </div>
+
+    <div class="end-actions">
+      <button class="btn-primary" id="restart-btn">换个活法，再推演一次</button>
+    </div>
+  `;
+
+  showScreen('screen-end');
+
+  $('restart-btn').addEventListener('click', () => {
+    showScreen('screen-start');
+  });
+}
+
+$('btn-start').addEventListener('click', () => {
+  renderOrigins();
+  showScreen('screen-origin');
+});
+</script>
+</body>
+</html>
