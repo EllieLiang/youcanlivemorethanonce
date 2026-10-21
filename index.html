@@ -389,7 +389,7 @@ const ATTR_META = {
   growth:    { name: '成长', color: '#a78bfa', icon: '🌱' },
 };
 
-const SCALE = 0.6;
+const SCALE = 0.8;
 
 const ORIGINS = [
   {
@@ -1216,24 +1216,39 @@ function showOutcome(outcome, deltas) {
   });
 }
 
+/* ---------- 综合评分（爽感升级版） ---------- */
 function calcScore() {
   const a = S.attrs;
-  return Math.round(
+  // 基础加权分
+  let baseScore = (
     a.health * 0.20 +
     a.wealth * 0.15 +
-    a.happiness * 0.30 +
+    a.happiness * 0.25 +
     a.relations * 0.20 +
-    a.growth * 0.15
+    a.growth * 0.20
   );
+
+  // 人生红利：如果有属性超过85，大幅加分（奖励专精玩家）
+  let bonus = 0;
+  if (a.health >= 85) bonus += 3;
+  if (a.wealth >= 85) bonus += 3;
+  if (a.happiness >= 85) bonus += 4; 
+  if (a.relations >= 85) bonus += 3;
+  if (a.growth >= 85) bonus += 3;
+
+  // 长寿加分：活到100岁本身就是一种成功
+  if (S.idx >= 19) bonus += 5;
+
+  return Math.min(100, Math.round(baseScore + bonus));
 }
 
 function getRank(score) {
-  if (score >= 82) return { name: '圆满人生', desc: '你几乎踩中了每一个关键节点，也守住了真正重要的东西。' };
-  if (score >= 68) return { name: '丰盛人生', desc: '有得有失，但你整体活得漂亮，没什么大的遗憾。' };
-  if (score >= 55) return { name: '安稳人生', desc: '没有大起大落，日子过得踏实，只是偶尔会想"如果当初"。' };
-  if (score >= 42) return { name: '起伏人生', desc: '你付出了代价，也换回了一些东西。这就是大多数人的样子。' };
-  if (score >= 28) return { name: '艰难人生', desc: '很多选择都不在你掌控之内，你一直在用有限的牌打一手硬仗。' };
-  return { name: '耗尽人生', desc: '你一直在为生存奔跑，几乎没有喘息的机会。' };
+  if (score >= 90) return { name: '传奇人生', desc: '万里挑一的剧本。你不仅赢了，而且赢得漂亮，活成了别人眼里的光。' };
+  if (score >= 75) return { name: '圆满人生', desc: '你几乎踩中了每一个关键节点，也守住了真正重要的东西，没什么大遗憾。' };
+  if (score >= 60) return { name: '丰盛人生', desc: '有得有失，但你整体活得通透且漂亮，在几个领域达到了极高的上限。' };
+  if (score >= 45) return { name: '安稳人生', desc: '没有大起大落，日子过得踏实。也许偶尔会想"如果当初"，但这就是真实的生活。' };
+  if (score >= 30) return { name: '起伏人生', desc: '你付出了代价，也换回了一些东西。你在风浪里摸爬滚打，已经是自己的英雄。' };
+  return { name: '艰难人生', desc: '很多选择都不在你掌控之内，你一直在用有限的牌打一手硬仗。辛苦了。' };
 }
 
 function attrComment(k, v) {
